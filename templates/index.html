@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatGPT Poor Ver.</title>
+    <style>
+        /* 設定文本區域的寬度和最小高度 */
+        textarea {
+            width: 100%;
+            min-height: 150px;
+        }
+        #initial-system {
+            width: 80%;
+        }
+    </style>
+</head>
+<body>
+    <!-- 主標題 -->
+    <h1>ChatGPT Poor Ver.</h1>
+     <!-- 表單，用於輸入問題和選擇對話類型 -->
+    <form id="gpt-form">
+        <br>
+        <label for="initial-system">初始System設定:</label>
+        <input type="text" id="initial-system" name="initial_system">
+        <br>
+        <!-- 選擇單次或連續對話 -->
+        <input type="radio" id="single" name="chat_type" value="single" checked>
+        <label for="single">一次性對話</label><br>
+        <input type="radio" id="continuous" name="chat_type" value="continuous">
+        <label for="continuous">連續對話</label><br>
+        <br>
+        <!-- 文本區域，用於輸入問題 -->
+        <textarea id="input-text" name="input_text" placeholder="請輸入您的問題"></textarea>
+        <br>
+        <!-- 提交按鈕，用於提交問題 -->
+        <button type="submit">提交</button>
+        <!-- 保存聊天紀錄按鈕，用於下載聊天紀錄 -->
+        <button id="save-history" type="button">保存聊天紀錄</button>
+        <!-- 清空聊天紀錄按鈕，用於清除對話歷史 -->
+        <button id="clear-history" type="button">清空聊天紀錄</button>
+    </form>
+    <!-- 顯示AI回應的區域 -->
+    <div id="response"></div>
+    <br>
+    <!-- 對話紀錄標題 -->
+    <h2>對話紀錄</h2>
+    <!-- 顯示對話紀錄的區域 -->
+    <div id="history"></div>
+
+    <!-- 引入jQuery庫 -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function() {
+        // 當表單提交時的操作
+            $('#gpt-form').on('submit', function(e) {
+                e.preventDefault();
+                // 禁用提交按鈕，以防止重複提交
+                $("button[type='submit']").prop("disabled", true);
+                // 發送POST
+                $.ajax({
+                    url: '/get_response',
+                    method: 'POST',
+                    data: $(this).serialize(),
+                    success: function(data) {
+                        // 將AI回應顯示在response區域
+                        $('#response').text(data.response);
+                        // 更新對話紀錄
+                        updateHistory(data.history);
+                        // 啟用提交按鈕
+                        $("button[type='submit']").prop("disabled", false);
+                    },
+                    error: function() {
+                        // 如果發生錯誤，也要啟用提交按鈕
+                        $("button[type='submit']").prop("disabled", false);
+                    }
+                });
+            });
+            // 當點擊保存聊天紀錄按鈕時，跳轉到/download_history路徑
+            $('#save-history').on('click', function() {
+                window.location.href = '/download_history';
+            });
+
+            function checkIfConversationStarted(history) {
+                if (history.length > 0) {
+                    // 禁用初始system設定欄位
+                    $('#initial-system').prop('disabled', true);
+                } else {
+                    // 啟用初始system設定欄位
+                    $('#initial-system').prop('disabled', false);
+                }
+            }
+
+            // 當清空聊天紀錄按鈕被點擊時
+            $('#clear-history').on('click', function () {
+                $.ajax({
+                    url: '/clear_history',
+                    method: 'POST',
+                    success: function () {
+                        $('#history').html('');
+                        // 檢查是否可以啟用初始system設定欄位
+                        checkIfConversationStarted([]);
+                    },
+                });
+            });
+            // 在更新歷史時檢查對話是否已經開始
+            function updateHistory(history) {
+                let historyHtml = '';
+                // 遍歷對話紀錄，將其格式化為HTML
+                for (const message of history) {
+                    historyHtml += `<strong>${message.role}:</strong> ${message.content}<br>`;
+                }
+                // 更新對話紀錄區域的內容
+                $('#history').html(historyHtml);
+                checkIfConversationStarted(history);
+            }
+        });
+    </script>
+</body>
+</html>
