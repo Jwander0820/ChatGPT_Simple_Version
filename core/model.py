@@ -15,57 +15,66 @@ openai.api_key = api_key
 
 class OpenAIModel:
     def __init__(self):
-        # 初始化對話歷史
-        self.messages = []
         self.logger = create_logger()
+        self.messages = []  # 初始化對話歷史
+        self.title = ""  # 初始化標題
 
-    def chat_gpt_response(self, prompt, chat_type, initial_system=None):
-        # 此函數負責向GPT-3 API發送請求並返回AI的回應
-        oneshot_message = []  # 將 oneshot_message 改為局部變量
+    def update_messages(self, initial_system, oneshot_message=None):
         if initial_system and not any(msg['role'] == 'system' for msg in self.messages):
             self.messages.append({"role": "system", "content": initial_system})
 
-        if initial_system and not any(msg['role'] == 'system' for msg in oneshot_message):
+        if oneshot_message and initial_system and not any(msg['role'] == 'system' for msg in oneshot_message):
             oneshot_message.append({"role": "system", "content": initial_system})
-        model_engine = "gpt-3.5-turbo"  # 使用gpt-3.5-turbo模型
-        # 如果對話類型為"single"，即一次性對話
+
+    def send_request_to_api(self, model_engine, messages):
+        """向openai發送request取得response"""
+        response = openai.ChatCompletion.create(
+            model=model_engine,
+            max_tokens=2048,
+            temperature=0.5,
+            messages=messages
+        )
+        return response
+
+    def chat_gpt_response(self, prompt, chat_type, initial_system=None):
+        """根據指定狀態，取得ChatGPT的回應"""
+        oneshot_message = []
+
+        self.update_messages(initial_system, oneshot_message)
+
+        model_engine = "gpt-3.5-turbo"
+
         if chat_type == "single":
             oneshot_message.append({"role": "user", "content": prompt})
-            # 向API發送請求
-            response = openai.ChatCompletion.create(
-                model=model_engine,
-                max_tokens=1024,
-                temperature=0.5,
-                messages=oneshot_message
-            )
-            # 從API返回的回應中提取AI回應的文本
-            ai_msg = response.choices[0].message.content.replace('\n', '')
-            # 將AI回應添加到對話歷史中
+            response = self.send_request_to_api(model_engine, oneshot_message)
+        elif chat_type == "continuous":
+            if not self.title:  # 如果尚未有任何對話，將第一次提交的文字以指定prompt提取出存檔命名標題
+                analysis_prompt = f"請根據以下文字，生成適合的文字標題，盡量減少單字在10個單詞以內用於chatgpt的標題命名: {prompt}"
+                oneshot_message.append({"role": "user", "content": analysis_prompt})
+                response = self.send_request_to_api(model_engine, oneshot_message)
+                self.title = response.choices[0].message.content.replace('\n', '')
+                self.title = self.sanitize_filename(self.title)
+                self.title = f"{self.title}.md"
+
+            self.messages.append({"role": "user", "content": prompt})
+            response = self.send_request_to_api(model_engine, self.messages)
+        else:
+            return False
+
+        ai_msg = response.choices[0].message.content.replace('\n', '')
+
+        if chat_type == "single":
             oneshot_message.append({"role": "assistant", "content": ai_msg})
             self.logger.info(oneshot_message)
-            print(oneshot_message)
             return ai_msg, oneshot_message
-
-        # 如果對話類型為"continuous"，即連續對話
-        elif chat_type == "continuous":
-            # 將用戶的提問添加到對話歷史中
-            self.messages.append({"role": "user", "content": prompt})
-
-            response = openai.ChatCompletion.create(
-                model=model_engine,
-                max_tokens=2048,
-                temperature=0.5,
-                messages=self.messages
-            )
-
-            ai_msg = response.choices[0].message.content.replace('\n', '')
-            # 將AI回應添加到對話歷史中
+        else:
             self.messages.append({"role": "assistant", "content": ai_msg})
             self.logger.info([{"role": "user", "content": prompt}, {"role": "assistant", "content": ai_msg}])
             print(self.messages)
             return ai_msg, self.messages
 
     def generate_dalle_image(self, prompt_text, n=1, size="512x512"):
+        """提交提示詞給DALL-E，並取得生成圖片的網址"""
         try:
             response = openai.Image.create(
                 prompt=prompt_text,
@@ -91,6 +100,7 @@ class OpenAIModel:
 
     @staticmethod
     def download_image(image_url, local_path):
+        """解析並下載圖片"""
         if not os.path.exists("./img"):
             os.makedirs("./img")
         # 檢查文件是否存在，如果存在則為其添加 _流水號
@@ -110,15 +120,32 @@ class OpenAIModel:
 
     @staticmethod
     def generate_md_file(messages, filename):
-        # 此函數將對話歷史生成為Markdown文件
-        with open(filename, 'w', encoding='utf-8') as f:
+        """此函數將對話歷史生成為Markdown文件"""
+        chat_history_folder = "./chat_history"
+        if not os.path.exists(chat_history_folder):
+            os.makedirs(chat_history_folder)
+        file_path = os.path.join(chat_history_folder, filename)
+        with open(file_path, 'w', encoding='utf-8') as f:
             for message in messages:
                 f.write(f"{message['role']}: {message['content']}\n")
                 if message['role'] == "assistant":
                     f.write('---\n')  # 在AI回覆後加入分隔線
+        return file_path
 
     def get_message_history(self):
-        return self.messages
+        """取得聊天紀錄的標題，用於命名檔名"""
+        if not self.title:
+            return self.messages, "chat_history.md"
+        return self.messages, self.title
 
     def clear_message_history(self):
+        """清空歷史紀錄"""
         self.messages = []
+        self.title = ""
+
+    def sanitize_filename(self, title):
+        """替換掉windows無法命名的文字"""
+        invalid_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
+        for char in invalid_chars:
+            title = title.replace(char, '-')
+        return title

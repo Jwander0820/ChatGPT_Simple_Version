@@ -1,3 +1,4 @@
+import os
 from flask import Flask, render_template, request, jsonify, send_file
 from core.model import OpenAIModel
 
@@ -24,10 +25,9 @@ def get_response():
 
 @app.route('/download_history', methods=['GET'])
 def download_history():
-    filename = 'chat_history.md'
-    messages = openai_model.get_message_history()
-    openai_model.generate_md_file(messages, filename)  # 調用函數將對話歷史寫入Markdown文件
-    return send_file(filename, as_attachment=True)  # 將文件作為附件發送給用戶
+    messages, title = openai_model.get_message_history()
+    file_path = openai_model.generate_md_file(messages, title)  # 調用函數將對話歷史寫入Markdown文件
+    return send_file(file_path)  # 將文件作為附件發送給用戶
 
 
 @app.route('/clear_history', methods=['POST'])
