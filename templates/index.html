@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChatGPT Poor Ver.</title>
+    <title>ChatGPT Poor Ver. & DALL-E</title>
     <style>
         /* 設定文本區域的寬度和最小高度 */
         textarea {
@@ -29,6 +29,9 @@
         <label for="single">一次性對話</label><br>
         <input type="radio" id="continuous" name="chat_type" value="continuous">
         <label for="continuous">連續對話</label><br>
+        <!-- DALL-E 按鈕和圖像顯示區域 -->
+        <input type="radio" id="dalle" name="chat_type" value="dalle">
+        <label for="dalle">DALL-E 2</label><br>
         <br>
         <!-- 文本區域，用於輸入問題 -->
         <textarea id="input-text" name="input_text" placeholder="請輸入您的問題"></textarea>
@@ -58,15 +61,34 @@
                 // 禁用提交按鈕，以防止重複提交
                 $("button[type='submit']").prop("disabled", true);
                 // 發送POST
+                if ($('#single').is(':checked')) {
+                    // 如果選中了一次性對話
+                    url = '/get_response';
+                } else if ($('#continuous').is(':checked')) {
+                    // 如果選中了連續對話
+                    url = '/get_response';
+                } else {
+                    // 如果選中了 DALL-E
+                    url = '/generate_image';
+                }
                 $.ajax({
-                    url: '/get_response',
+                    url: url,
                     method: 'POST',
-                    data: $(this).serialize(),
+                    data: {
+                        input_text: $('#input-text').val(),
+                        initial_system: $('#initial-system').val(),
+                        chat_type: $("input[name='chat_type']:checked").val()
+                    },
                     success: function(data) {
-                        // 將AI回應顯示在response區域
-                        $('#response').text(data.response);
-                        // 更新對話紀錄
-                        updateHistory(data.history);
+                        if (url === '/generate_image') {
+                            // 如果是 DALL-E 請求，顯示圖片
+                            $('#response').html('<img src="' + data.image_url + '">');
+                        } else {
+                            // 否則顯示文本回應
+                            $('#response').text(data.response);
+                            // 更新對話紀錄
+                            updateHistory(data.history);
+                        }
                         // 啟用提交按鈕
                         $("button[type='submit']").prop("disabled", false);
                     },
@@ -114,6 +136,19 @@
                 $('#history').html(historyHtml);
                 checkIfConversationStarted(history);
             }
+            function generateImage() {
+            var input_text = document.getElementById("input_text").value;
+            $.ajax({
+                url: '/generate_image',
+                data: {input_text: input_text},
+                type: 'POST',
+                success: function(response) {
+                    document.getElementById("image_area").src = response.image_url;
+                },
+                error: function(error) {
+                    console.log(error);
+                }
+            })};
         });
     </script>
 </body>

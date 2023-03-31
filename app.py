@@ -1,7 +1,9 @@
-from flask import Flask, render_template, request, jsonify, make_response, send_file
-import openai
-import json
 import configparser
+import os
+import urllib.request
+
+import openai
+from flask import Flask, render_template, request, jsonify, send_file
 
 config = configparser.ConfigParser()
 config.read("config.ini")
@@ -103,5 +105,43 @@ def clear_history():
     return jsonify(success=True)  # 返回操作成功的JSON響應
 
 
+def generate_dalle_image(prompt_text, n=1, size="256x256"):
+    response = openai.Image.create(
+        prompt=prompt_text,
+        n=n,
+        size=size
+    )
+    image_url = response['data'][0]['url']
+    print(image_url)
+    download_image(image_url, f"./img/{prompt_text}.png")  # 下載圖片
+    return image_url
+
+
+def download_image(image_url, local_path):
+    if not os.path.exists("./img"):
+        os.makedirs("./img")
+    # 檢查文件是否存在，如果存在則為其添加 _流水號
+    file_exists = os.path.isfile(local_path)
+    count = 1
+    new_local_path = local_path
+
+    while file_exists:
+        file_name, file_ext = os.path.splitext(local_path)
+        new_local_path = f"{file_name}_{count}{file_ext}"
+        file_exists = os.path.isfile(new_local_path)
+        count += 1
+
+    # 下載並保存圖片
+    with urllib.request.urlopen(image_url) as response, open(new_local_path, 'wb') as out_file:
+        out_file.write(response.read())
+
+
+@app.route('/generate_image', methods=['POST'])
+def generate_image_route():
+    prompt_text = request.form.get('input_text')
+    image_url = generate_dalle_image(prompt_text)
+    return jsonify({"image_url": image_url})
+
+
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)
