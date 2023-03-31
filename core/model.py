@@ -70,7 +70,12 @@ class OpenAIModel:
             )
             image_url = response['data'][0]['url']
             print(image_url)
-            OpenAIModel.download_image(image_url, f"./img/{prompt_text}.png")  # 下載圖片
+            try:
+                OpenAIModel.download_image(image_url, f"./img/{prompt_text}.png")  # 下載圖片
+            except:
+                # 當prompt因為命名問題無法儲存時，改以created_id作為檔案名稱
+                created_id = response["created"]
+                OpenAIModel.download_image(image_url, f"./img/{created_id}.png")  # 下載圖片
             return image_url, True
         except Exception as e:
             print(e)
