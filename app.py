@@ -39,8 +39,8 @@ def clear_history():
 @app.route('/generate_image', methods=['POST'])
 def generate_image_route():
     prompt_text = request.form.get('input_text')
-    image_url = openai_model.generate_dalle_image(prompt_text)
-    return jsonify({"image_url": image_url})
+    image_url, success = openai_model.generate_dalle_image(prompt_text)
+    return jsonify({"image_url": image_url, "success": success})
 
 
 if __name__ == '__main__':

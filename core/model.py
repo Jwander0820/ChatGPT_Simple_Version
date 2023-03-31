@@ -62,15 +62,21 @@ class OpenAIModel:
 
     @staticmethod
     def generate_dalle_image(prompt_text, n=1, size="512x512"):
-        response = openai.Image.create(
-            prompt=prompt_text,
-            n=n,
-            size=size
-        )
-        image_url = response['data'][0]['url']
-        print(image_url)
-        OpenAIModel.download_image(image_url, f"./img/{prompt_text}.png")  # 下載圖片
-        return image_url
+        try:
+            response = openai.Image.create(
+                prompt=prompt_text,
+                n=n,
+                size=size
+            )
+            image_url = response['data'][0]['url']
+            print(image_url)
+            OpenAIModel.download_image(image_url, f"./img/{prompt_text}.png")  # 下載圖片
+            return image_url, True
+        except Exception as e:
+            print(e)
+            error_text = "Your request was rejected as a result of our safety system. " \
+                         "Your prompt may contain text that is not allowed by our safety system."
+            return error_text, False
 
     @staticmethod
     def download_image(image_url, local_path):

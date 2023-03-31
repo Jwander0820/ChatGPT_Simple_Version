@@ -81,8 +81,13 @@
                     },
                     success: function(data) {
                         if (url === '/generate_image') {
-                            // 如果是 DALL-E 請求，顯示圖片
-                            $('#response').html('<img src="' + data.image_url + '">');
+                            if (data.success) {
+                                // 如果是 DALL-E 請求且成功，顯示圖片
+                                $('#response').html('<img src="' + data.image_url + '">');
+                            } else {
+                                // 如果失敗，顯示錯誤訊息
+                                $('#response').text(data.image_url);
+                            }
                         } else {
                             // 否則顯示文本回應
                             $('#response').text(data.response);
