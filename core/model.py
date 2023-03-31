@@ -4,6 +4,8 @@ import urllib.request
 
 import openai
 
+from core.logger import create_logger
+
 config = configparser.ConfigParser()
 config.read("config.ini")
 api_key = config["api"]["key"]
@@ -15,6 +17,7 @@ class OpenAIModel:
     def __init__(self):
         # 初始化對話歷史
         self.messages = []
+        self.logger = create_logger()
 
     def chat_gpt_response(self, prompt, chat_type, initial_system=None):
         # 此函數負責向GPT-3 API發送請求並返回AI的回應
@@ -39,6 +42,7 @@ class OpenAIModel:
             ai_msg = response.choices[0].message.content.replace('\n', '')
             # 將AI回應添加到對話歷史中
             oneshot_message.append({"role": "assistant", "content": ai_msg})
+            self.logger.info(oneshot_message)
             print(oneshot_message)
             return ai_msg, oneshot_message
 
@@ -57,11 +61,11 @@ class OpenAIModel:
             ai_msg = response.choices[0].message.content.replace('\n', '')
             # 將AI回應添加到對話歷史中
             self.messages.append({"role": "assistant", "content": ai_msg})
+            self.logger.info([{"role": "user", "content": prompt}, {"role": "assistant", "content": ai_msg}])
             print(self.messages)
             return ai_msg, self.messages
 
-    @staticmethod
-    def generate_dalle_image(prompt_text, n=1, size="512x512"):
+    def generate_dalle_image(self, prompt_text, n=1, size="512x512"):
         try:
             response = openai.Image.create(
                 prompt=prompt_text,
@@ -72,13 +76,15 @@ class OpenAIModel:
             print(image_url)
             try:
                 OpenAIModel.download_image(image_url, f"./img/{prompt_text}.png")  # 下載圖片
+                self.logger.info([prompt_text, f"./img/{prompt_text}.png"])
             except:
                 # 當prompt因為命名問題無法儲存時，改以created_id作為檔案名稱
                 created_id = response["created"]
                 OpenAIModel.download_image(image_url, f"./img/{created_id}.png")  # 下載圖片
+                self.logger.info([prompt_text, f"./img/{created_id}.png"])
             return image_url, True
         except Exception as e:
-            print(e)
+            self.logger.info(e)
             error_text = "Your request was rejected as a result of our safety system. " \
                          "Your prompt may contain text that is not allowed by our safety system."
             return error_text, False
