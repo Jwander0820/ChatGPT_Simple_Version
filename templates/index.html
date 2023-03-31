@@ -136,19 +136,21 @@
                 $('#history').html(historyHtml);
                 checkIfConversationStarted(history);
             }
+            // 呼叫DALL-E API 生成圖片
             function generateImage() {
-            var input_text = document.getElementById("input_text").value;
-            $.ajax({
-                url: '/generate_image',
-                data: {input_text: input_text},
-                type: 'POST',
-                success: function(response) {
-                    document.getElementById("image_area").src = response.image_url;
-                },
-                error: function(error) {
-                    console.log(error);
-                }
-            })};
+                var input_text = document.getElementById("input_text").value;
+                $.ajax({
+                    url: '/generate_image',
+                    data: {input_text: input_text},
+                    type: 'POST',
+                    success: function(response) {
+                        document.getElementById("image_area").src = response.image_url;
+                    },
+                    error: function(error) {
+                        console.log(error);
+                    }
+                })
+            };
         });
     </script>
 </body>
